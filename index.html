@@ -215,16 +215,16 @@ function shade(hex,amt){
 /* ===== 状態 ===== */
 const state={
  colors:[], binding:'white',
- ribbon:false, ribbonColors:[null,null,null,null],
- flower:false, flowers:[{p:null,c:null},{p:null,c:null},{p:null,c:null}],
+ ribbon:false, ribbonColors:[null,null,null,null], ribbonPos:'up', ribbonN:4,
+ flower:false, flowers:[{p:null,c:null},{p:null,c:null},{p:null,c:null}], flowerPos:'down', flowerN:3,
  tulle:false, tulleColor:'white',
- wood:false, pearl:'none', pearlCore:null,
+ wood:false, woodPos:'down', woodN:3, pearl:'none', pearlCore:null,
  oshi:false, oshiMain:null, oshiCord:null,
  length:false, nui:false, penlight:false,
 };
 const MAX_COLORS=6;
-const ribbonSlots=()=> state.tulle?2:4;          // リボンは上側固定、チュール時2
-const FLOWER_N=3; // お花は前面・下に3つ固定
+const ribbonSlots=()=> Math.min(state.ribbonN, state.tulle?2:4);   // チュールありは2つまで
+const posName=p=> p==='up'?'リングの上':'リングの下';
 
 /* ===== 価格 ===== */
 const BASE=12980;
@@ -297,6 +297,13 @@ function setSubColor(group,idx,cid){
  renderAll();
 }
 
+/* ===== 位置・個数のピル ===== */
+function segPills(key,opts){
+ return '<div class="pills">'+opts.map(o=>`<button type="button" class="pill${state[key]===o.v?' on':''}" data-set="1" data-key="${key}" data-val="${o.v}">${o.t}</button>`).join('')+'</div>';
+}
+const POS=[{v:'up',t:'リングの上'},{v:'down',t:'リングの下'}];
+const numOpts=max=>Array.from({length:max},(_,i)=>({v:i+1,t:(i+1)+'つ'}));
+
 /* ===== オプション ===== */
 function renderOptions(){
  const host=document.getElementById('optCard');host.innerHTML='';
@@ -304,18 +311,21 @@ function renderOptions(){
  host.appendChild(optCard({key:'ribbon',name:'リボン',price:'+¥300',desc:'リングのすぐ上に固定で付くよ',
   body:()=>{
    const n=ribbonSlots();
-   let h=`<p class="sub-label">リボンの色 <span>（上側・${n}か所）</span></p>`;
+   let h=`<p class="sub-label">つける位置</p>${segPills('ribbonPos',POS)}
+    <p class="sub-label" style="margin-top:12px">個数</p>${segPills('ribbonN',numOpts(4))}
+    <p class="sub-label" style="margin-top:12px">リボンの色 <span>（${posName(state.ribbonPos)}・${n}か所）</span></p>`;
    if(state.colors.length===0)return h+`<div class="empty-hint">先にコードの色を選んでね</div>`;
    for(let i=0;i<n;i++)h+=`<div class="slot"><p class="sub-label">${i+1}つ目</p>${miniGrid('ribbon',i,state.ribbonColors[i])}</div>`;
    if(state.tulle)h+=`<p class="note">チュールありなので2か所までだよ</p>`;
    return h;
   }}));
 
- host.appendChild(optCard({key:'flower',name:'お花',price:'+¥1,000',desc:'3つとも色を選べるよ',
+ host.appendChild(optCard({key:'flower',name:'お花',price:'+¥1,000',desc:'1つずつ色を選べるよ',
   body:()=>{
-   let h=`<p class="sub-label">リングのすぐ下に3つ付くよ <span>※装飾はリング側の1本にまとまります</span></p>`;
+   let h=`<p class="sub-label">つける位置 <span>※装飾はリング側の1本にまとまります</span></p>${segPills('flowerPos',POS)}
+    <p class="sub-label" style="margin-top:12px">個数</p>${segPills('flowerN',numOpts(3))}`;
    if(state.colors.length===0)return h+`<div class="empty-hint">先にコードの色を選んでね</div>`;
-   for(let i=0;i<3;i++){
+   for(let i=0;i<Math.min(state.flowerN,3);i++){
     h+=`<div class="slot" style="margin-top:12px"><p class="sub-label">${i+1}つ目 ・ 花びらの色</p>${miniGrid('flowerP',i,state.flowers[i].p)}
         <p class="sub-label" style="margin-top:8px">${i+1}つ目 ・ 中心（芯）の色</p>${miniGrid('flowerC',i,state.flowers[i].c)}</div>`;
    }
@@ -330,7 +340,9 @@ function renderOptions(){
    return h+`</div>`;
   },after:()=>{document.querySelectorAll('.tulle-c').forEach(b=>b.onclick=()=>{state.tulleColor=b.dataset.c;renderAll();});}}));
 
- host.appendChild(optCard({key:'wood',name:'ウッドビーズ',price:'+¥300',desc:'リングの下に通すよ',body:null}));
+ host.appendChild(optCard({key:'wood',name:'ウッドビーズ',price:'+¥300',desc:'編み込みに通すよ',
+  body:()=>`<p class="sub-label">つける位置</p>${segPills('woodPos',POS)}
+   <p class="sub-label" style="margin-top:12px">個数</p>${segPills('woodN',numOpts(3))}`}));
  host.appendChild(pearlCardEl());
 
  host.appendChild(optCard({key:'oshi',name:'推し活用コード',price:'+¥500',desc:'編み目に沿ってループ状のコードが出るよ',
@@ -343,6 +355,7 @@ function renderOptions(){
  host.appendChild(optCard({key:'length',name:'長さ調整',price:'+¥500',desc:'肩がけ／斜めがけのお好みの長さに',body:null}));
 
  document.querySelectorAll('[data-mini]').forEach(m=>m.onclick=()=>setSubColor(m.dataset.group,+m.dataset.idx,m.dataset.cid));
+ document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const v=b.dataset.val;state[b.dataset.key]=/^[0-9]+$/.test(v)?+v:v;renderAll();});
 }
 function pearlCardEl(){
  const w=document.createElement('div');const on=state.pearl!=='none';
@@ -451,6 +464,9 @@ function cord(pts,seq,blockStart,mid){
 }
 /* パス上の位置（f=0〜1）。装飾はストランドの長さに対する割合で置く */
 const atFrac=(pts,f)=>{const S=resample(pts,KNOT);return S[Math.max(0,Math.min(S.length-1,Math.round(f*(S.length-1))))];};
+/* パスの端からの距離(px)で位置を取る（fromEnd=trueで終点側から） */
+const atLen=(pts,px,fromEnd)=>{const S=resample(pts,1);const i=fromEnd?S.length-1-Math.round(px):Math.round(px);return S[Math.max(0,Math.min(S.length-1,i))];};
+const pathLen=pts=>resample(pts,1).length;
 
 /* 結束コード（下端の巻きどめ） */
 function bindWrap(x,y,w,h,col){
@@ -560,30 +576,37 @@ function buildStrapSVG(){
   deco+=`<g>${loops}</g>`;
  }
 
- /* リボン：リングのすぐ上に4つ（チュールありは2つ） */
- if(state.ribbon){
-  const n=state.tulle?2:4;
-  const idx=n===2?[0.74,0.91]:[0.59,0.70,0.81,0.92];
-  idx.forEach((k,i)=>{const s=atFrac(FU,k);if(s)deco+=bowAt(s[0],s[1],s[2]+Math.PI/2,strapHex(byId(state.ribbonColors[i]))||'#E6007E');});
- }
-
- /* お花：リングのすぐ下に3つ */
- if(state.flower&&!threeWay){
-  [0.10,0.32,0.54].forEach((k,i)=>{const s=atFrac(FL,k);if(!s)return;
-   const p=strapHex(byId(state.flowers[i].p))||'#ec7ab5',c=strapHex(byId(state.flowers[i].c))||'#fff';
-   deco+=flowerAt(s[0],s[1],p,c);});
- }
-
- /* ウッドビーズ：リングの下（お花ありのときはその下） */
- if(state.wood&&!threeWay){
-  (state.flower?[0.74,0.88]:[0.16,0.40,0.64]).forEach(k=>{const s=atFrac(FL,k);if(!s)return;
-   deco+=`<g filter="url(#soft)"><circle cx="${s[0].toFixed(1)}" cy="${s[1].toFixed(1)}" r="8" fill="url(#woodG)" stroke="#a67d47" stroke-width=".9"/>`
-    +`<ellipse cx="${(s[0]-2.4).toFixed(1)}" cy="${(s[1]-2.6).toFixed(1)}" rx="2.6" ry="1.8" transform="rotate(-30 ${(s[0]-2.4).toFixed(1)} ${(s[1]-2.6).toFixed(1)})" fill="#f0dcbb" opacity=".75"/></g>`;});
- }
+ /* リボン・お花・ウッドビーズ：選んだ側（リングの上／下）に順に並べる */
+ const plan={up:[],down:[]};
+ if(state.ribbon)plan[state.ribbonPos||'up'].push({t:'ribbon',n:ribbonSlots(),gap:31});
+ if(state.flower)plan[state.flowerPos||'down'].push({t:'flower',n:Math.min(state.flowerN||3,3),gap:27});
+ if(state.wood)plan[state.woodPos||'down'].push({t:'wood',n:Math.min(state.woodN||3,3),gap:21});
+ ['up','down'].forEach(side=>{
+  const items=plan[side];if(!items.length)return;
+  if(side==='down'&&threeWay)return;            // 下側が全部パールのときは付かない
+  const path=side==='up'?FU:FL,fromEnd=(side==='up');
+  const avail=pathLen(path)-26;
+  const need=items.reduce((a,it)=>a+it.n*it.gap,0);
+  const sc=need>avail?avail/need:1;
+  let d=15;
+  items.forEach(it=>{
+   for(let i=0;i<it.n;i++){
+    const p=atLen(path,d,fromEnd);d+=it.gap*sc;if(!p)continue;
+    if(it.t==='ribbon')deco+=bowAt(p[0],p[1],p[2]+Math.PI/2,strapHex(byId(state.ribbonColors[i]))||'#E6007E');
+    else if(it.t==='flower'){
+     const fp=strapHex(byId(state.flowers[i].p))||'#ec7ab5',fc=strapHex(byId(state.flowers[i].c))||'#fff';
+     deco+=flowerAt(p[0],p[1],fp,fc);
+    }else{
+     deco+=`<g filter="url(#soft)"><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="8" fill="url(#woodG)" stroke="#a67d47" stroke-width=".9"/>`
+      +`<ellipse cx="${(p[0]-2.4).toFixed(1)}" cy="${(p[1]-2.6).toFixed(1)}" rx="2.6" ry="1.8" transform="rotate(-30 ${(p[0]-2.4).toFixed(1)} ${(p[1]-2.6).toFixed(1)})" fill="#f0dcbb" opacity=".75"/></g>`;
+    }
+   }
+  });
+ });
 
  /* パール（ビーズ使い）：リングの下の編み込みに通す */
  if(state.pearl==='beads'){
-  (state.flower?[0.76,0.90]:[0.20,0.44,0.68]).forEach(k=>{const p=atFrac(FL,k);if(!p)return;
+  (plan.down.length?[0.80,0.92]:[0.20,0.44,0.68]).forEach(k=>{const p=atFrac(FL,k);if(!p)return;
    deco+=`<g filter="url(#soft)"><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="8" fill="url(#pearlG)" stroke="#cdc4b1" stroke-width=".8"/>`
     +`<circle cx="${(p[0]-2.6).toFixed(1)}" cy="${(p[1]-2.8).toFixed(1)}" r="2.2" fill="#fff" opacity=".8"/></g>`;});
  }
@@ -620,8 +643,8 @@ function renderPreview(){
  if(state.ribbon)t.push('リボン×'+ribbonSlots());
  if(state.pearl==='three')t.push('3wayパール');
  else{
-  if(state.flower)t.push('お花×3');
-  if(state.wood)t.push('ウッドビーズ');
+  if(state.flower)t.push('お花×'+state.flowerN);
+  if(state.wood)t.push('ウッドビーズ×'+state.woodN);
   if(state.pearl==='beads')t.push('パール');
  }
  if(state.oshi)t.push('推し活コード');
@@ -638,10 +661,10 @@ function buildSummary(){
  if(state.colors.length>4)L.push(`（5色目以降 ${state.colors.length-4}色 +¥${((state.colors.length-4)*300).toLocaleString()}）`);
  L.push('結束コード：'+(BIND.find(b=>b.id===state.binding)||{}).name);
  const o=[];
- if(state.ribbon)o.push('リボン（上側'+ribbonSlots()+'つ：'+state.ribbonColors.slice(0,ribbonSlots()).map(x=>x?nm(x):'未選択').join('・')+'）');
- if(state.flower){const fs=[];for(let i=0;i<3;i++)fs.push(`${i+1}つ目 花びら:${state.flowers[i].p?nm(state.flowers[i].p):'未選択'}／中心:${state.flowers[i].c?nm(state.flowers[i].c):'未選択'}`);o.push('お花（前面・下3つ）\n　　'+fs.join('\n　　'));}
+ if(state.ribbon)o.push('リボン（'+posName(state.ribbonPos)+'・'+ribbonSlots()+'つ：'+state.ribbonColors.slice(0,ribbonSlots()).map(x=>x?nm(x):'未選択').join('・')+'）');
+ if(state.flower){const fn=Math.min(state.flowerN,3),fs=[];for(let i=0;i<fn;i++)fs.push(`${i+1}つ目 花びら:${state.flowers[i].p?nm(state.flowers[i].p):'未選択'}／中心:${state.flowers[i].c?nm(state.flowers[i].c):'未選択'}`);o.push('お花（'+posName(state.flowerPos)+'・'+fn+'つ）\n　　'+fs.join('\n　　'));}
  if(state.tulle)o.push('チュール（'+(state.tulleColor==='black'?'ブラック':'ホワイト')+'）');
- if(state.wood)o.push('ウッドビーズ');
+ if(state.wood)o.push('ウッドビーズ（'+posName(state.woodPos)+'・'+state.woodN+'つ）');
  if(state.pearl==='beads')o.push('パール（ビーズ使い）');
  if(state.pearl==='three')o.push('3wayパール（芯：'+(state.pearlCore?nm(state.pearlCore):'未選択')+'）');
  if(state.oshi)o.push('推し活用コード（メイン '+(state.oshiMain?nm(state.oshiMain):'未選択')+'／コード '+(state.oshiCord?nm(state.oshiCord):'未選択')+'）');
@@ -674,9 +697,9 @@ document.getElementById('copyBtn').onclick=async e=>{
  catch(err){alert('コピーできませんでした。長押しで選択してね。');}
 };
 document.getElementById('resetBtn').onclick=()=>{
- Object.assign(state,{colors:[],binding:'white',ribbon:false,ribbonColors:[null,null,null,null],
-  flower:false,flowers:[{p:null,c:null},{p:null,c:null},{p:null,c:null}],tulle:false,tulleColor:'white',
-  wood:false,pearl:'none',pearlCore:null,oshi:false,oshiMain:null,oshiCord:null,length:false,nui:false,penlight:false});
+ Object.assign(state,{colors:[],binding:'white',ribbon:false,ribbonColors:[null,null,null,null],ribbonPos:'up',ribbonN:4,
+  flower:false,flowers:[{p:null,c:null},{p:null,c:null},{p:null,c:null}],flowerPos:'down',flowerN:3,tulle:false,tulleColor:'white',
+  wood:false,woodPos:'down',woodN:3,pearl:'none',pearlCore:null,oshi:false,oshiMain:null,oshiCord:null,length:false,nui:false,penlight:false});
  renderAll();window.scrollTo({top:0,behavior:'smooth'});
 };
 renderAll();
