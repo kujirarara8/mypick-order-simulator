@@ -218,7 +218,7 @@ const state={
  ribbon:false, ribbonColors:[null,null,null,null], ribbonPos:'up', ribbonN:4,
  flower:false, flowers:[{p:null,c:null},{p:null,c:null},{p:null,c:null}], flowerPos:'down', flowerN:3,
  tulle:false, tulleColor:'white',
- wood:false, woodPos:'down', woodN:3, pearl:'none', pearlCore:null,
+ wood:false, woodPos:'down', woodN:3, pearl:'none', pearlCore:null, pearlPos:'down', pearlN:3,
  oshi:false, oshiMain:null, oshiCord:null,
  length:false, nui:false, penlight:false,
 };
@@ -332,7 +332,7 @@ function renderOptions(){
    return h;
   }}));
 
- host.appendChild(optCard({key:'tulle',name:'チュール',price:'+¥500',desc:'肩につくよ。上のリボンが2つに減るよ',
+ host.appendChild(optCard({key:'tulle',name:'チュール',price:'+¥500',desc:'肩につくよ。上は編まずに紐のままになるよ',
   body:()=>{
    const o=[{id:'white',name:'ホワイト',hex:'#f2f2f2'},{id:'black',name:'ブラック',hex:'#1c1c1e'}];
    let h=`<p class="sub-label">チュールの色</p><div class="pills">`;
@@ -368,8 +368,13 @@ function pearlCardEl(){
   </div><p class="note">3wayはリングから下が全部パールになるよ。お花・ウッドビーズは付かないよ。</p><div id="pearlCore"></div></div>`;
  w.querySelectorAll('.pearl-m').forEach(b=>b.onclick=()=>{state.pearl=b.dataset.m;renderAll();});
  setTimeout(()=>{const h=w.querySelector('#pearlCore');
-  if(h&&state.pearl==='three'){h.innerHTML=state.colors.length===0?`<div class="empty-hint" style="margin-top:12px">先にコードの色を選んでね</div>`:`<p class="sub-label" style="margin-top:14px">パールの芯の色</p>${miniGrid('pearlCore',0,state.pearlCore)}`;
-   h.querySelectorAll('[data-mini]').forEach(m=>m.onclick=()=>setSubColor('pearlCore',0,m.dataset.cid));}},0);
+  if(!h)return;
+  if(state.pearl==='three'){h.innerHTML=state.colors.length===0?`<div class="empty-hint" style="margin-top:12px">先にコードの色を選んでね</div>`:`<p class="sub-label" style="margin-top:14px">パールの芯の色</p>${miniGrid('pearlCore',0,state.pearlCore)}`;
+   h.querySelectorAll('[data-mini]').forEach(m=>m.onclick=()=>setSubColor('pearlCore',0,m.dataset.cid));}
+  else if(state.pearl==='beads'){h.innerHTML=`<p class="sub-label" style="margin-top:14px">つける位置</p>${segPills('pearlPos',POS)}
+    <p class="sub-label" style="margin-top:12px">個数</p>${segPills('pearlN',numOpts(3))}`;
+   h.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const v=b.dataset.val;state[b.dataset.key]=/^[0-9]+$/.test(v)?+v:v;renderAll();});}
+  else h.innerHTML='';},0);
  return w;
 }
 function optCard({key,name,price,desc,body,after}){
@@ -467,6 +472,8 @@ const atFrac=(pts,f)=>{const S=resample(pts,KNOT);return S[Math.max(0,Math.min(S
 /* パスの端からの距離(px)で位置を取る（fromEnd=trueで終点側から） */
 const atLen=(pts,px,fromEnd)=>{const S=resample(pts,1);const i=fromEnd?S.length-1-Math.round(px):Math.round(px);return S[Math.max(0,Math.min(S.length-1,i))];};
 const pathLen=pts=>resample(pts,1).length;
+/* パスを距離(px)で切り出す */
+const slicePath=(pts,from,to)=>{const S=resample(pts,1);return S.slice(Math.max(0,from|0),to===undefined?S.length:to|0).map(p=>[p[0],p[1]]);};
 
 /* 結束コード（下端の巻きどめ） */
 function bindWrap(x,y,w,h,col){
@@ -477,16 +484,26 @@ function bindWrap(x,y,w,h,col){
  return s+'</g>';
 }
 
-/* チュール */
+/* チュール（オーガンジーのフリル） */
 function tulleAt(x,y,mode){
- const f=mode==='black'?'rgba(38,38,44,':'rgba(255,255,255,';
- const st=mode==='black'?'rgba(24,24,30,.38)':'rgba(198,198,216,.7)';
+ const black=mode==='black';
+ const f=black?'rgba(40,40,46,':'rgba(255,255,255,';
+ const st=black?'rgba(16,16,22,.5)':'rgba(198,198,218,.65)';
+ const puff=(cx,cy,w,h,rot,op)=>`<path d="M${-w},0 C${-w*0.9},${-h*0.8} ${-w*0.3},${-h} 0,${-h*0.85}
+   C${w*0.35},${-h} ${w*0.9},${-h*0.75} ${w},${-h*0.05}
+   C${w*0.9},${h*0.6} ${w*0.4},${h} 0,${h*0.9}
+   C${-w*0.45},${h} ${-w*0.95},${h*0.6} ${-w},0 Z"
+   transform="translate(${cx},${cy}) rotate(${rot})" fill="${f}${op})" stroke="${st}" stroke-width=".9" stroke-linejoin="round"/>`;
  let s='<g>';
- [[-32,12,25,14,-14],[-13,4,27,16,-5],[13,4,27,16,5],[32,12,25,14,14],[0,17,29,15,0]]
-  .forEach(([dx,dy,rx,ry,rot],i)=>{
-   s+=`<ellipse cx="${x+dx}" cy="${y+dy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${x+dx} ${y+dy})" fill="${f}${(0.20+(i%2)*0.08).toFixed(2)})" stroke="${st}" stroke-width=".7"/>`;
-  });
- for(let k=-2;k<=2;k++)s+=`<path d="M${x},${y} Q${x+k*9},${y+12} ${x+k*14},${y+24}" fill="none" stroke="${st}" stroke-width=".8" opacity=".5"/>`;
+const o=black?.34:.55;
+ s+=puff(x-30,y+16,30,26,-16,o);
+ s+=puff(x+32,y+12,32,27,14,o);
+ s+=puff(x-16,y+46,26,24,-8,o+.06);
+ s+=puff(x+24,y+50,28,25,10,o+.06);
+ s+=puff(x+2,y+20,26,22,2,o+.08);
+ s+=puff(x+8,y+74,22,20,6,o);
+ // ギャザー
+ for(let k=-1;k<=1;k++)s+=`<path d="M${x},${y+4} Q${x+k*14},${y+36} ${x+k*18},${y+74}" fill="none" stroke="${st}" stroke-width=".8" opacity=".35"/>`;
  return s+'</g>';
 }
 
@@ -547,19 +564,34 @@ function buildStrapSVG(){
 
  /* 区間ブロックの配色（左右で順番を変える） */
  const seqL=blockSeq(cols,3,28),seqR=blockSeq(cols,11,28);
- const cL=cord(BACK,seqL,0,0);
- const cU=cord(FU,seqR,0,1);
+ /* チュールを付ける場合、肩の部分は編まずに紐のまま（実物と同じ） */
+ const TOP=state.tulle?96:0;
+ const BACKb=TOP?slicePath(BACK,TOP):BACK, FUb=TOP?slicePath(FU,TOP):FU;
+ const cL=cord(BACKb,seqL,0,0);
+ const cU=cord(FUb,seqR,0,1);
  const threeWay=state.pearl==='three';
  const cD=threeWay?null:cord(FL,seqR,cU.blocks,2);   // 右ストランドの続きとして色を継ぐ
  const lower=threeWay
   ? pearlStrand(FL,strapHex(byId(state.pearlCore))||bandHex(seqR[0],0))
   : cD.svg;
- const body=`<g filter="url(#soft)">${cL.svg}${cU.svg}${lower}</g>`;
+ let plain='';
+ if(TOP){
+  [[BACK,seqL],[FU,seqR]].forEach(([p,sq])=>{
+   const seg=slicePath(p,0,TOP+3),d=seg.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ');
+   const c=bandHex(sq[0],0);
+   plain+=`<polyline points="${d}" fill="none" stroke="rgba(52,46,80,.20)" stroke-width="6.4" stroke-linecap="round"/>`
+    +`<polyline points="${d}" fill="none" stroke="${c}" stroke-width="4.4" stroke-linecap="round"/>`;
+  });
+ }
+ const body=`<g filter="url(#soft)">${plain}${cL.svg}${cU.svg}${lower}</g>`;
 
  const bindCol=((BIND.find(b=>b.id===state.binding)||BIND[0]).hex);
  let deco='';
 
- if(state.tulle)deco+=tulleAt(150,42,state.tulleColor);
+ if(state.tulle){
+  deco+=tulleAt(150,30,state.tulleColor);
+  [BACK,FU].forEach(p=>{const q=atLen(p,TOP,false);if(q)deco+=bindWrap(q[0],q[1],13,20,bindCol);});
+ }
 
  /* 推し活用コード：編み目に沿ってループ状に出るコード（リング側の上） */
  if(state.oshi){
@@ -581,6 +613,7 @@ function buildStrapSVG(){
  if(state.ribbon)plan[state.ribbonPos||'up'].push({t:'ribbon',n:ribbonSlots(),gap:31});
  if(state.flower)plan[state.flowerPos||'down'].push({t:'flower',n:Math.min(state.flowerN||3,3),gap:27});
  if(state.wood)plan[state.woodPos||'down'].push({t:'wood',n:Math.min(state.woodN||3,3),gap:21});
+ if(state.pearl==='beads')plan[state.pearlPos||'down'].push({t:'pearl',n:Math.min(state.pearlN||3,3),gap:21});
  ['up','down'].forEach(side=>{
   const items=plan[side];if(!items.length)return;
   if(side==='down'&&threeWay)return;            // 下側が全部パールのときは付かない
@@ -596,6 +629,9 @@ function buildStrapSVG(){
     else if(it.t==='flower'){
      const fp=strapHex(byId(state.flowers[i].p))||'#ec7ab5',fc=strapHex(byId(state.flowers[i].c))||'#fff';
      deco+=flowerAt(p[0],p[1],fp,fc);
+    }else if(it.t==='pearl'){
+     deco+=`<g filter="url(#soft)"><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="8" fill="url(#pearlG)" stroke="#cdc4b1" stroke-width=".8"/>`
+      +`<circle cx="${(p[0]-2.6).toFixed(1)}" cy="${(p[1]-2.8).toFixed(1)}" r="2.2" fill="#fff" opacity=".8"/></g>`;
     }else{
      deco+=`<g filter="url(#soft)"><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="8" fill="url(#woodG)" stroke="#a67d47" stroke-width=".9"/>`
       +`<ellipse cx="${(p[0]-2.4).toFixed(1)}" cy="${(p[1]-2.6).toFixed(1)}" rx="2.6" ry="1.8" transform="rotate(-30 ${(p[0]-2.4).toFixed(1)} ${(p[1]-2.6).toFixed(1)})" fill="#f0dcbb" opacity=".75"/></g>`;
@@ -603,13 +639,6 @@ function buildStrapSVG(){
    }
   });
  });
-
- /* パール（ビーズ使い）：リングの下の編み込みに通す */
- if(state.pearl==='beads'){
-  (plan.down.length?[0.80,0.92]:[0.20,0.44,0.68]).forEach(k=>{const p=atFrac(FL,k);if(!p)return;
-   deco+=`<g filter="url(#soft)"><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="8" fill="url(#pearlG)" stroke="#cdc4b1" stroke-width=".8"/>`
-    +`<circle cx="${(p[0]-2.6).toFixed(1)}" cy="${(p[1]-2.8).toFixed(1)}" r="2.2" fill="#fff" opacity=".8"/></g>`;});
- }
 
  /* 下端：テール→巻きどめ→カニカン→スマホ */
  const tailD='M110,470 Q112,516 146,534 M190,470 Q188,516 154,534';
@@ -645,7 +674,7 @@ function renderPreview(){
  else{
   if(state.flower)t.push('お花×'+state.flowerN);
   if(state.wood)t.push('ウッドビーズ×'+state.woodN);
-  if(state.pearl==='beads')t.push('パール');
+  if(state.pearl==='beads')t.push('パール×'+state.pearlN);
  }
  if(state.oshi)t.push('推し活コード');
  tags.innerHTML=t.length?t.join(' / '):'';
@@ -665,7 +694,7 @@ function buildSummary(){
  if(state.flower){const fn=Math.min(state.flowerN,3),fs=[];for(let i=0;i<fn;i++)fs.push(`${i+1}つ目 花びら:${state.flowers[i].p?nm(state.flowers[i].p):'未選択'}／中心:${state.flowers[i].c?nm(state.flowers[i].c):'未選択'}`);o.push('お花（'+posName(state.flowerPos)+'・'+fn+'つ）\n　　'+fs.join('\n　　'));}
  if(state.tulle)o.push('チュール（'+(state.tulleColor==='black'?'ブラック':'ホワイト')+'）');
  if(state.wood)o.push('ウッドビーズ（'+posName(state.woodPos)+'・'+state.woodN+'つ）');
- if(state.pearl==='beads')o.push('パール（ビーズ使い）');
+ if(state.pearl==='beads')o.push('パール ビーズ使い（'+posName(state.pearlPos)+'・'+state.pearlN+'つ）');
  if(state.pearl==='three')o.push('3wayパール（芯：'+(state.pearlCore?nm(state.pearlCore):'未選択')+'）');
  if(state.oshi)o.push('推し活用コード（メイン '+(state.oshiMain?nm(state.oshiMain):'未選択')+'／コード '+(state.oshiCord?nm(state.oshiCord):'未選択')+'）');
  if(state.length)o.push('長さ調整');
@@ -699,7 +728,7 @@ document.getElementById('copyBtn').onclick=async e=>{
 document.getElementById('resetBtn').onclick=()=>{
  Object.assign(state,{colors:[],binding:'white',ribbon:false,ribbonColors:[null,null,null,null],ribbonPos:'up',ribbonN:4,
   flower:false,flowers:[{p:null,c:null},{p:null,c:null},{p:null,c:null}],flowerPos:'down',flowerN:3,tulle:false,tulleColor:'white',
-  wood:false,woodPos:'down',woodN:3,pearl:'none',pearlCore:null,oshi:false,oshiMain:null,oshiCord:null,length:false,nui:false,penlight:false});
+  wood:false,woodPos:'down',woodN:3,pearl:'none',pearlCore:null,pearlPos:'down',pearlN:3,oshi:false,oshiMain:null,oshiCord:null,length:false,nui:false,penlight:false});
  renderAll();window.scrollTo({top:0,behavior:'smooth'});
 };
 renderAll();
